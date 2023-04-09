@@ -9,6 +9,8 @@ import (
 
 var enc = binary.BigEndian
 
+// Size of uint64 is 8 bytes
+// lenWidth is the number of bytes used to store length of each appended record
 const lenWidth = 8
 
 type store struct {
@@ -35,12 +37,14 @@ func newStore(f *os.File) (*store, error) {
 // Appends slice of bytes to the store
 // Returns:
 // n - total number of bytes written
-// pos - starting position from where append started
+// pos - starting position from where append started (used to create index)
 // err - error
 func (s *store) Append(p []byte) (n uint64, pos uint64, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	pos = s.size
+
+	// Write the length of p in buffer
 	if err := binary.Write(s.buf, enc, uint64(len(p))); err != nil {
 		return 0, 0, err
 	}
@@ -81,6 +85,8 @@ func (s *store) Read(pos uint64) ([]byte, error) {
 	return b, nil
 }
 
+// Read data into p from the offset off till the size of p
+// Returns number of bytes read
 func (s *store) ReadAt(p []byte, off int64) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
