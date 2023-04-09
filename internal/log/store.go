@@ -32,6 +32,11 @@ func newStore(f *os.File) (*store, error) {
 	}, nil
 }
 
+// Appends slice of bytes to the store
+// Returns:
+// n - total number of bytes written
+// pos - starting position from where append started
+// err - error
 func (s *store) Append(p []byte) (n uint64, pos uint64, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -40,16 +45,21 @@ func (s *store) Append(p []byte) (n uint64, pos uint64, err error) {
 		return 0, 0, err
 	}
 
+	// w - total number of bytes written
 	w, err := s.buf.Write(p)
 	if err != nil {
 		return 0, 0, err
 	}
 
+	// Adding 8 bytes to w because we've written length of p i.e. uint64 to the buffer
 	w += lenWidth
+	// Increment the total size of the store
 	s.size += uint64(w)
 	return uint64(w), pos, nil
 }
 
+// Whenever we append, we write the length of content we're appending
+// Then use it to read the content
 func (s *store) Read(pos uint64) ([]byte, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -80,4 +90,15 @@ func (s *store) ReadAt(p []byte, off int64) (int, error) {
 	}
 
 	return s.File.ReadAt(p, off)
+}
+
+func (s *store) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	err := s.buf.Flush()
+	if err != nil {
+		return err
+	}
+	return s.File.Close()
 }
